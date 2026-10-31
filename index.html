@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover：刘海屏也铺满，边缘留白靠 safe-area 补 -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1512">
+<meta name="color-scheme" content="dark">
+<title>AiAnZe</title>
+<meta name="description" content="AiAnZe 的个人主页">
+<style>
+  :root{
+    --text:#e9f0dd;
+    --muted:#a3b58f;
+    --accent:#b9e05a;
+    --line:rgba(200,230,150,.16);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;
+    /* 没有 WebGL 时露出的兜底渐变（canvas 会被隐藏，所以渐变必须挂在 body 上） */
+    background:#08100c linear-gradient(#08120f 0%,#16281f 45%,#2c3a22 62%,#0b1512 100%) fixed;
+    color:var(--text);
+    font:16px/1.75 -apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    overflow-x:hidden;
+    /* 移动端：横屏/双击不放大字号，去掉点击高亮；页面不整页回弹 */
+    -webkit-text-size-adjust:100%;
+    text-size-adjust:100%;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+    overscroll-behavior:none;
+  }
+  /* WebGL 沼泽背景；不支持时露出下面的渐变 */
+  #gl{
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100%;
+    display:block;
+    z-index:0;
+    background:linear-gradient(#08120f 0%,#16281f 45%,#2c3a22 62%,#0b1512 100%);
+  }
+  .wrap{
+    position:relative;
+    z-index:1;
+    min-height:100vh;
+    min-height:100dvh;
+    display:flex;
+    align-items:flex-end;
+    justify-content:flex-start;
+    /* 不支持 env()/max() 的老浏览器沿用普通留白 */
+    padding:clamp(16px,3.5vw,40px);
+    /* 基础留白，再用 max() 让开刘海、圆角和底部手势条 */
+    padding:max(clamp(16px,3.5vw,40px),env(safe-area-inset-top))
+            max(clamp(16px,3.5vw,40px),env(safe-area-inset-right))
+            max(clamp(16px,3.5vw,40px),calc(env(safe-area-inset-bottom) + 8px))
+            max(clamp(16px,3.5vw,40px),env(safe-area-inset-left));
+  }
+  /* 文字缩到左下角，不再用实心卡片挡住画面 */
+  main{
+    width:100%;
+    max-width:min(360px,86vw);
+    padding:0;
+    border:0;
+    background:none;
+    /* 只靠文字阴影保证可读性，不加底色 */
+    text-shadow:0 1px 14px rgba(0,0,0,.92),0 0 26px rgba(0,0,0,.75);
+  }
+  h1{
+    margin:0 0 2px;
+    font-size:clamp(20px,3.4vw,26px);
+    line-height:1.2;
+    letter-spacing:.5px;
+    font-weight:600;
+    color:rgba(233,240,221,.92);
+  }
+  .sub{
+    margin:0 0 12px;
+    color:rgba(163,181,143,.85);
+    font-size:12px;
+    letter-spacing:.08em;
+  }
+  .dot{
+    display:inline-block;width:7px;height:7px;margin-right:8px;
+    border-radius:50%;background:var(--accent);
+    box-shadow:0 0 12px var(--accent);
+    vertical-align:middle;
+    animation:pulse 2.8s ease-in-out infinite;
+  }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  p.body{margin:0 0 16px;color:rgba(219,230,205,.72);font-size:12.5px;line-height:1.7}
+  footer{margin-top:14px;color:rgba(163,181,143,.55);font-size:11px;letter-spacing:.05em}
+  @media (prefers-reduced-motion:reduce){ .dot{animation:none} }
+  /* 手机竖屏 / 窄窗口：文字略放大、行距收紧，占屏更少 */
+  @media (max-width:640px){
+    main{max-width:min(100%,92vw)}
+    h1{font-size:clamp(21px,6vw,26px)}
+    .sub{font-size:12.5px;margin-bottom:10px}
+    p.body{font-size:13px;line-height:1.65;margin-bottom:13px}
+    footer{margin-top:11px;font-size:11.5px}
+  }
+  /* 横屏手机：屏幕矮，文字块收窄，尽量不压住画面主体 */
+  @media (max-height:520px) and (orientation:landscape){
+    main{max-width:min(340px,50vw)}
+    h1{font-size:clamp(19px,3vw,23px)}
+    p.body{font-size:12px;line-height:1.55;margin-bottom:10px}
+    footer{margin-top:8px}
+  }
+  /* 超窄屏（320px 级老机器）：别让字号把行撑爆 */
+  @media (max-width:360px){
+    p.body{font-size:12.5px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<div class="wrap">
+  <main>
+    <!-- 改这里：标题、副标题、介绍 -->
+    <h1>AiAnZe</h1>
+    <p class="sub"><span class="dot"></span>www.aianze.cn</p>
+
+    <p class="body">
+      一片会呼吸的泽薮：雾从水面升起，萤火在芦苇间飘，
+      月光碎在涟漪里。整幅画面没有一张图片，都是着色器实时算出来的。
+    </p>
+
+    <footer>© <span id="year">2026</span> AiAnZe</footer>
+  </main>
+</div>
+
+<script>
+(
+  function () {
+    'use strict';
+    var canvas = document.getElementById('gl');
+    var reduce = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.getElementById('year').textContent = new Date().getFullYear();
+    var gl = canvas.getContext(
+      'webgl',
+      {
+        antialias: false,
+        alpha: false,
+        depth: false,
+        stencil: false,
+        powerPreference: 'high-performance'
+      }
+    ) ||
+    canvas.getContext('experimental-webgl');
+    if (!gl) {
+      canvas.style.display = 'none'; // 退回 CSS 渐变
+      return;
+    }
+    var VERT = [
+      'attribute vec2 a_pos;',
+      'void main() {',
+      '  gl_Position = vec4(a_pos, 0.0, 1.0);',
+      '}'
+    ].join('\n');
+    var FRAG = [
+      'precision highp float;',
+      'uniform vec2  u_res;',
+      'uniform float u_time;',
+      'uniform float u_fire;', // 实际点亮的萤火数量（移动端按性能减少）
+      '',
+      'const float HOR = -0.06;', // 地平线（水面高度）
+      '',
+      'float hash11(float n) { return fract(sin(n) * 43758.5453123); }',
+      'float hash21(vec2 p) {',
+      '  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);',
+      '}',
+      '',
+      'float noise(vec2 p) {',
+      '  vec2 i = floor(p);',
+      '  vec2 f = fract(p);',
+      '  f = f * f * (3.0 - 2.0 * f);',
+      '  float a = hash21(i);',
+      '  float b = hash21(i + vec2(1.0, 0.0));',
+      '  float c = hash21(i + vec2(0.0, 1.0));',
+      '  float d = hash21(i + vec2(1.0, 1.0));',
+      '  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);',
+      '}',
+      '',
+      'float fbm(vec2 p) {',
+      '  float v = 0.0;',
+      '  float a = 0.5;',
+      '  for (int i = 0; i < 5; i++) {',
+      '    v += a * noise(p);',
+      '    p = p * 2.03 + vec2(11.7, 5.3);',
+      '    a *= 0.5;',
+      '  }',
+      '  return v;',
+      '}',
+      '',
+      '// 黄昏沼气的天空：地平线泛黄绿，高处沉入墨青',
+      'vec3 skyColor(vec2 p) {',
+      '  float y = clamp((p.y - HOR) / 0.62, 0.0, 1.0);',
+      '  vec3 low  = vec3(0.30, 0.36, 0.24);',
+      '  vec3 mid  = vec3(0.10, 0.17, 0.15);',
+      '  vec3 high = vec3(0.02, 0.045, 0.055);',
+      '  vec3 c = mix(low, mid, smoothstep(0.0, 0.50, y));',
+      '  c = mix(c, high, smoothstep(0.40, 0.95, y));',
+      '  return c;',
+      '}',
+      '',
+      '// 山脊轮廓：低频决定几座主峰的高低，中频叠出山脊，高频抖边缘',
+      'float treeMask(vec2 p, float sc, float seed, float lo, float hi) {',
+      '  float x = p.x * sc + seed;',
+      '  float big  = fbm(vec2(x * 1.00, seed * 0.7));   // 主峰：大起大落',
+      '  float mid  = fbm(vec2(x * 3.10, seed + 4.0));   // 山脊',
+      '  float fine = fbm(vec2(x * 8.00, seed + 9.0));   // 边缘毛刺',
+      '  // 拉成 0..1 并偏向低处：多数地方是矮坡，偶尔冒出高尖峰',
+      '  float s = clamp((big - 0.24) / 0.54, 0.0, 1.0);',
+      '  s = pow(s, 1.25);',
+      '  float ridge = mix(lo, hi, s);',
+      '  ridge += 0.045 * (mid - 0.5);',
+      '  ridge += 0.010 * (fine - 0.5);',
+      '  ridge = max(ridge, lo - 0.05);',
+      '  float m = 1.0 - smoothstep(ridge - 0.0035, ridge + 0.0035, p.y - HOR);',
+      '  m *= smoothstep(HOR - 0.006, HOR + 0.006, p.y);   // 只在地平线以上',
+      '  return m;',
+      '}',
+      '',
+      '// 前景芦苇：四排细草，只从画面下缘露出一点，不挡画面',
+      'float reeds(vec2 p, float t) {',
+      '  float m = 0.0;',
+      '  for (int i = 0; i < 4; i++) {',
+      '    float fi = float(i);',
+      '    float sc = 13.0 + fi * 6.5;', // 越靠后越密
+      '    float x = p.x * sc + fi * 17.0;',
+      '    float cell = floor(x);',
+      '    float f = fract(x) - 0.5;',
+      '    float hs = hash11(cell * 7.13 + fi * 31.7);',
+      '    float hs2 = hash11(cell * 3.71 + fi * 91.3);',
+      '    float hgt = 0.10 + 0.16 * hs;', // 矮草：0.10~0.26
+      '    float q = (p.y + 0.52) / hgt;',
+      '    if (q > 0.0 && q < 1.05) {',
+      '      float sway = (0.10 + 0.12 * hs2) * sin(t * 0.75 + cell * 1.1 + fi * 1.7);',
+      '      float wc = max(0.07 * pow(1.0 - clamp(q, 0.0, 1.0), 0.7), 0.005);',
+      '      float d = abs(f - sway * q * q);',
+      '      m = max(m, (1.0 - smoothstep(wc * 0.25, wc, d)) * (0.42 + 0.30 * hs2));',
+      '    }',
+      '  }',
+      '  return clamp(m, 0.0, 1.0);',
+      '}',
+      '',
+      'void main() {',
+      '  vec2 p = (gl_FragCoord.xy - 0.5 * u_res) / u_res.y;',
+      '  float t = u_time;',
+      '  float visW = 0.5 * u_res.x / u_res.y;', // 画面可见的半宽（p 单位）
+      '',
+      '  // ---------- 天空 ----------',
+      '  vec3 col = skyColor(p);',
+      '',
+      '  // 月亮：冷白的清亮一团，带淡蓝光晕',
+      '  vec2 mo = vec2(-0.42 * visW, 0.30);', // 竖屏按比例内收，月亮不会被裁到画外
+      '  float dm = length((p - mo) * vec2(1.0, 1.18));',
+      '  col += vec3(0.26, 0.36, 0.58) * (0.010 / (dm * dm + 0.012));',
+      '  col += vec3(0.80, 0.87, 1.00) * (1.0 - smoothstep(0.046, 0.062, dm));',
+      '',
+      '  // ---------- 两层树影 ----------',
+      '  // 远山最高约 0.32、谷底贴近水面；近山更矮更暗，两层拉开层次',
+      '  float far_tree  = treeMask(p, 1.5, 3.0, 0.01, 0.32);',
+      '  float near_tree = treeMask(p, 2.4, 21.0, -0.02, 0.22);',
+      '  col = mix(col, vec3(0.105, 0.145, 0.115), far_tree * 0.80);',
+      '  col = mix(col, vec3(0.028, 0.048, 0.040), near_tree * 0.92);',
+      '',
+      '  // ---------- 贴着水面的雾 ----------',
+      '  float fog = fbm(vec2(p.x * 1.4 + t * 0.02, (p.y - HOR) * 6.0));',
+      '  float fogAmt = smoothstep(0.40, 0.96, fog)',
+      '               * exp(-max(p.y - HOR, 0.0) * 9.0)',
+      '               * smoothstep(HOR - 0.012, HOR + 0.02, p.y);',
+      '  col = mix(col, vec3(0.56, 0.62, 0.48), fogAmt * 0.52);',
+      '',
+      '  // ---------- 水面 ----------',
+      '  if (p.y < HOR + 0.004) {',
+      '    float d = max(HOR - p.y, 0.0);',
+      '    float rip = 0.010 * sin(d * 62.0 - t * 1.1',
+      '                           + fbm(vec2(p.x * 2.6, t * 0.15)) * 5.0)',
+      '              + 0.005 * sin(d * 141.0 + t * 1.9);',
+      '    vec2 rp = vec2(p.x + rip * (0.5 + d * 2.2), HOR + d * 0.80);',
+      '    vec3 refl = skyColor(rp);',
+      '    vec3 water = mix(vec3(0.035, 0.055, 0.048), refl, 0.42);',
+      '    water = mix(water, vec3(0.018, 0.030, 0.028),',
+      '                smoothstep(0.0, 0.10, d) * 0.55);',
+      '',
+      '    // 月亮在水面上的碎光',
+      '    float mx = (p.x - mo.x) / 0.055;',
+      '    float mcol = exp(-mx * mx);',
+      '    float mstreak = mcol * exp(-d * 2.2)',
+      '                  * (0.55 + 0.45 * sin(d * 70.0 - t * 2.0 + rip * 60.0));',
+      '    water += vec3(0.58, 0.66, 0.88) * mstreak * 0.60;',
+      '',
+      '    col = mix(col, water, smoothstep(0.0, 0.010, d));',
+      '  }',
+      '',
+      '  // ---------- 萤火 ----------',
+      '  // 竖屏时可见横向范围只有 ±0.5*宽高比，按画面宽度收缩分布，避免大半萤火落在屏幕外',
+      '  float spanX = min(0.88, 0.95 * visW);',
+      '  for (int i = 0; i < 140; i++) {',
+      '    float fi = float(i);',
+      '    if (fi < u_fire) {',
+      // 黄金比例分布，数量多也不容易扎堆
+      '      float hx = fract(fi * 0.6180339887 + 0.137);',
+      '      float hy = hash11(fi * 9.11 + 7.0);',
+      '      vec2 c = vec2(mix(-spanX, spanX, hx),',
+      '                    HOR + 0.010 + 0.26 * hy);',
+      '      c.x += 0.045 * sin(t * 0.55 + fi * 1.9);',
+      '      c.y += 0.028 * sin(t * 0.40 + fi * 2.7);',
+      '      float dd = length((p - c) * vec2(1.0, 1.55));',
+      // 大小有随机差异，整体缩到原来一半左右
+      '      float sz = 0.34 + 0.40 * hash11(fi * 5.71 + 3.0);',
+      '      float tw = 0.55 + 0.45 * sin(t * 2.2 + fi * 4.1);',
+      '      float glow = 0.0000032 * sz / (dd * dd + 0.0000016 * sz) * tw;',
+      '      col += vec3(0.66, 0.95, 0.40) * min(glow, 0.26);',
+      '    }',
+      '  }',
+      '',
+      '  // ---------- 前景芦苇 ----------',
+      '  float rd = reeds(p, t);',
+      '  col = mix(col, vec3(0.014, 0.022, 0.018), rd);',
+      '',
+      '  // ---------- 暗角与颗粒 ----------',
+      '  float v = length(p * vec2(0.75, 1.0));',
+      '  col *= 1.0 - 0.55 * pow(min(v, 1.5), 2.0);',
+      '  col += (hash21(gl_FragCoord.xy + fract(t)) - 0.5) / 255.0;',
+      '',
+      '  gl_FragColor = vec4(max(col, 0.0), 1.0);',
+      '}'
+    ].join('\n');
+    function compile(type, src) {
+      var sh = gl.createShader(type);
+      gl.shaderSource(sh, src);
+      gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+        console.error(gl.getShaderInfoLog(sh));
+        return null;
+      }
+      return sh;
+    }
+    var vs = compile(gl.VERTEX_SHADER, VERT);
+    var fs = compile(gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) {
+      canvas.style.display = 'none';
+      return;
+    }
+    var prog = gl.createProgram();
+    gl.attachShader(prog, vs);
+    gl.attachShader(prog, fs);
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+      console.error(gl.getProgramInfoLog(prog));
+      canvas.style.display = 'none';
+      return;
+    }
+    gl.useProgram(prog);
+    var buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(
+      gl.ARRAY_BUFFER,
+      new Float32Array([ - 1,
+      - 1,
+      1,
+      - 1,
+      - 1,
+      1,
+      - 1,
+      1,
+      1,
+      - 1,
+      1,
+      1]),
+      gl.STATIC_DRAW
+    );
+    var aPos = gl.getAttribLocation(prog, 'a_pos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+    var uRes = gl.getUniformLocation(prog, 'u_res');
+    var uTime = gl.getUniformLocation(prog, 'u_time');
+    var uFire = gl.getUniformLocation(prog, 'u_fire');
+    // 触屏或窄屏按移动端处理：萤火少一些，像素比也压得更低
+    function isSmall() {
+      return window.innerWidth < 640 ||
+        !! (window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    }
+    gl.uniform1f(uFire, isSmall() ? 84 : 140);
+    var w = 0,
+    h = 0,
+    quality = 1; // 帧率不够时的内部分辨率折减，1 = 全分辨率
+    function resize(force) {
+      // 着色器比较重，像素比上限压到 1.5（移动端 1.3），兼顾清晰度和帧率
+      var cap = isSmall() ? 1.3 : 1.5;
+      var dpr = Math.min(window.devicePixelRatio || 1, cap) * quality;
+      var cw = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+      var ch = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+      if (!force && cw === w && ch === h) return;
+      w = canvas.width = cw;
+      h = canvas.height = ch;
+      gl.viewport(0, 0, w, h);
+      gl.uniform2f(uRes, w, h);
+    }
+    resize();
+    if (window.visualViewport) {
+      // iOS 地址栏收起、软键盘弹出时，视觉视口变化不会触发 window.resize
+      window.visualViewport.addEventListener(
+        'resize',
+        function () {
+          resize(false);
+        },
+        {
+          passive: true
+        }
+      );
+    }
+    window.addEventListener('resize', function () {
+      resize(false);
+    }, {
+      passive: true
+    });
+    window.addEventListener('orientationchange', function () {
+      // 横竖屏切换后布局尺寸还没更新，等一帧再量
+      requestAnimationFrame(function () {
+        resize(false);
+      });
+    }, {
+      passive: true
+    });
+    var start = null,
+    paused = false,
+    lastTime = 0,
+    slowFrames = 0,
+    slowSum = 0,
+    warmup = 0;
+    // 手机上偶尔掉帧就自动降内部分辨率，最多降到 0.66
+    function adapt(dt) {
+      if (dt <= 0 || dt > 200) return; // 刚回到页面时的超长帧不算
+      if (warmup < 1200) {
+        warmup += dt;
+        return;
+      }
+      slowFrames++;
+      slowSum += dt;
+      if (slowFrames >= 40) {
+        var avg = slowSum / slowFrames;
+        slowFrames = 0;
+        slowSum = 0;
+        if (avg > 30 && quality > 0.66) {
+          quality = Math.max(0.66, quality * 0.8);
+          resize(true);
+        }
+      }
+    }
+    document.addEventListener(
+      'visibilitychange',
+      function () {
+        paused = document.hidden;
+        if (!paused) {
+          start = null;
+          lastTime = 0;
+          warmup = 0;
+          slowFrames = 0;
+          slowSum = 0;
+        }
+      }
+    );
+    function frame(now) {
+      requestAnimationFrame(frame);
+      if (paused) return;
+      if (start === null) {
+        start = now;
+        lastTime = now;
+      }
+      adapt(lastTime ? now - lastTime : 0);
+      lastTime = now;
+      gl.uniform1f(uTime, reduce ? 6 : (now - start) / 1000);
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+    }
+    requestAnimationFrame(frame);
+  }
+) ();
+</script>
+</body>
+</html>
